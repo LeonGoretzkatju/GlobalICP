@@ -111,7 +111,7 @@ def prepare_dataset34(voxel_size, global_map):
 
 def prepare_dataset23(voxel_size):
     print(":: Load two point clouds and disturb initial pose.")
-    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane3.pcd")
+    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2//plane3.pcd")
     # target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane2.pcd")
     target = global_point_cloud
     # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
@@ -129,12 +129,12 @@ def prepare_dataset23(voxel_size):
 
 def prepare_dataset12(voxel_size):
     print(":: Load two point clouds and disturb initial pose.")
-    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane2.pcd")  # source is colored in yellow
-    target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane1.pcd")  # target is colored in blue
+    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane1.pcd")  # source is colored in yellow
+    target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane2.pcd")  # target is colored in blue
     # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
     #                          [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1200.0],
-                             [0.0, 0.0, 1.0, 100.0], [0.0, 0.0, 0.0, 1.0]])
+    trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1500.0],
+                             [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
     source.transform(trans_init)
     # draw_registration_result(source, target, np.identity(4))
 
@@ -168,12 +168,12 @@ def refine_registration12(source, target, source_fpfh, target_fpfh, voxel_size):
     print(":: Point-to-plane ICP registration is applied on original point")
     print("   clouds to refine the alignment. This time we use a strict")
     print("   distance threshold %.3f." % distance_threshold)
-    # result = o3d.pipelines.registration.registration_icp(
-    #     source, target, distance_threshold, result_ransac12.transformation,
-    #     o3d.pipelines.registration.TransformationEstimationPointToPlane())
     result = o3d.pipelines.registration.registration_icp(
-        source, target, distance_threshold, np.identity(4),
+        source, target, distance_threshold, result_ransac12.transformation,
         o3d.pipelines.registration.TransformationEstimationPointToPlane())
+    # result = o3d.pipelines.registration.registration_icp(
+    #     source, target, distance_threshold, np.identity(4),
+    #     o3d.pipelines.registration.TransformationEstimationPointToPlane())
     return result
 
 
@@ -237,19 +237,19 @@ voxel_size = 10.0  # means 5cm for this dataset
 
 source1, target2, source_down1, target_down2, source_fpfh1, target_fpfh2 = prepare_dataset12(
     voxel_size)
+result_ransac12 = execute_global_registration(source_down1, target_down2,
+                                            source_fpfh1, target_fpfh2,
+                                            voxel_size)
+# source_down1.transform(result_ransac12.transformation)
+# global_point_cloud = source_down1 + target_down2
+# global_point_cloud.paint_uniform_color([1, 0.706, 0])
+# o3d.visualization.draw_geometries([global_point_cloud])
 
-# trans_rough = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1000.0],
-#                              [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-# draw_registration_result(source_down1, target_down2, trans_rough)
-
-
-# result_ransac12 = execute_global_registration(source_down1, target_down2,
-#                                             source_fpfh1, target_fpfh2,
-#                                             voxel_size)
 
 result_icp12 = refine_registration12(source_down1, target_down2, source_fpfh1, target_fpfh2,
                                      voxel_size)
 print(result_icp12.transformation)
+print(result_icp12.fitness)
 
 source_down1.transform(result_icp12.transformation)
 # draw_registration_result(source_down1, target_down2, np.identity(4))
@@ -257,22 +257,22 @@ global_point_cloud = source_down1 + target_down2
 global_point_cloud.paint_uniform_color([1, 0.706, 0])
 o3d.visualization.draw_geometries([global_point_cloud])
 
-source2, target3, source_down2, target_down3, source_fpfh2, target_fpfh3 = prepare_dataset23(
-    voxel_size)
-
-result_ransac23 = execute_global_registration(source_down2, target_down3,
-                                            source_fpfh2, target_fpfh3,
-                                            voxel_size)
+# source2, target3, source_down2, target_down3, source_fpfh2, target_fpfh3 = prepare_dataset23(
+#     voxel_size)
 #
-result_icp23 = refine_registration23(source_down2, target_down3, source_fpfh2, target_fpfh3,
-                                voxel_size)
+# result_ransac23 = execute_global_registration(source_down2, target_down3,
+#                                             source_fpfh2, target_fpfh3,
+#                                             voxel_size)
+#
+# result_icp23 = refine_registration23(source_down2, target_down3, source_fpfh2, target_fpfh3,
+#                                 voxel_size)
 # draw_registration_result(source_down2, target_down3, result_icp23.transformation)
-source_down2.transform(result_icp23.transformation)
-global_point_cloud = source_down2 + target_down3
-global_point_cloud.paint_uniform_color([1, 0.706, 0])
-o3d.visualization.draw_geometries([global_point_cloud])
+# source_down2.transform(result_icp23.transformation)
+# global_point_cloud = source_down2 + target_down3
+# global_point_cloud.paint_uniform_color([1, 0.706, 0])
+# o3d.visualization.draw_geometries([global_point_cloud])
 
-source3, target4, source_down3, target_down4, source_fpfh3, target_fpfh4 = prepare_dataset34(voxel_size, global_point_cloud)
+# source3, target4, source_down3, target_down4, source_fpfh3, target_fpfh4 = prepare_dataset34(voxel_size, global_point_cloud)
 
 # source_down1.transform(result_icp23.transformation)
 # source_down2.transform(result_icp23.transformation)
