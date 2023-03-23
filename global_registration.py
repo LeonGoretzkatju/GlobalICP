@@ -66,22 +66,26 @@ def prepare_dataset56(voxel_size, global_map_update_update):
     target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
     return source, target, source_down, target_down, source_fpfh, target_fpfh
 
-def prepare_dataset45(voxel_size, global_map_update):
+def prepare_dataset45(voxel_size):
     print(":: Load two point clouds and disturb initial pose.")
-    # source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/steel3.pcd")
-    source = global_map_update
-    target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/steel5.pcd")
+    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/steel5.pcd")
+    # source = global_map_update
+    target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/steel6.pcd")
+
+    source_copy = copy.deepcopy(source)
+    target_copy = copy.deepcopy(target)
+
     # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
     #                          [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    trans_init = np.asarray([[1.0, 0.0, 0.0, 200.0], [0.0, 1.0, 0.0, 700.0],
+    trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 600.0],
                              [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    source.transform(trans_init)
-    draw_registration_result(source, target, np.identity(4))
+    source_copy.transform(trans_init)
+    # draw_registration_result(source, target, np.identity(4))
 
     # source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
-    source_down, source_fpfh = preprocess_global_map(source, voxel_size)
-    target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
-    return source, target, source_down, target_down, source_fpfh, target_fpfh
+    source_down, source_fpfh = preprocess_point_cloud(source_copy, voxel_size)
+    target_down, target_fpfh = preprocess_point_cloud(target_copy, voxel_size)
+    return source, target, source_copy, target_copy, source_down, target_down, source_fpfh, target_fpfh
 
 
 def prepare_dataset34(voxel_size,global_map):
@@ -149,6 +153,13 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
     return result
 
+def execute_point2point_registration(source, target, threshold, trans_init, voxel_size):
+    distance_threshold = voxel_size * 0.4
+    reg_p2p = o3d.pipelines.registration.registration_icp(
+        source, target, distance_threshold, trans_init,
+        o3d.pipelines.registration.TransformationEstimationPointToPoint())
+    return reg_p2p
+
 def refine_registration12(source, target, source_fpfh, target_fpfh, voxel_size):
     distance_threshold = voxel_size * 0.4
     print(":: Point-to-plane ICP registration is applied on original point")
@@ -191,7 +202,7 @@ def refine_registration45(source, target, source_fpfh, target_fpfh, voxel_size):
     # refine_trans_init = np.asarray([[1.0, 0.0, 0.0, 200.0], [0.0, 1.0, 0.0, 200.0],
     #                          [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
     result = o3d.pipelines.registration.registration_icp(
-        source, target, distance_threshold, np.identity(4),
+        source, target, distance_threshold, result_ransac45.transformation,
         o3d.pipelines.registration.TransformationEstimationPointToPlane())
     return result
 
@@ -212,35 +223,36 @@ def refine_registration56(source, target, source_fpfh, target_fpfh, voxel_size):
     return result
 
 voxel_size = 10.0 # means 5cm for this dataset
+threshold = 10.0
 
-source1, target2, source_down1, target_down2, source_fpfh1, target_fpfh2 = prepare_dataset12(
-    voxel_size)
-
-result_ransac12 = execute_global_registration(source_down1, target_down2,
-                                            source_fpfh1, target_fpfh2,
-                                            voxel_size)
-
-result_icp12 = refine_registration12(source_down1, target_down2, source_fpfh1, target_fpfh2,
-                                voxel_size)
-
-source_down1.transform(result_icp12.transformation)
+# source1, target2, source_down1, target_down2, source_fpfh1, target_fpfh2 = prepare_dataset12(
+#     voxel_size)
+#
+# result_ransac12 = execute_global_registration(source_down1, target_down2,
+#                                             source_fpfh1, target_fpfh2,
+#                                             voxel_size)
+#
+# result_icp12 = refine_registration12(source_down1, target_down2, source_fpfh1, target_fpfh2,
+#                                 voxel_size)
+#
+# source_down1.transform(result_icp12.transformation)
 # draw_registration_result(source_down1, target_down2, result_icp12.transformation)
 
-source2, target3, source_down2, target_down3, source_fpfh2, target_fpfh3 = prepare_dataset23(
-    voxel_size)
-#
-result_ransac23 = execute_global_registration(source_down2, target_down3,
-                                            source_fpfh2, target_fpfh3,
-                                            voxel_size)
+# source2, target3, source_down2, target_down3, source_fpfh2, target_fpfh3 = prepare_dataset23(
+#     voxel_size)
+# #
+# result_ransac23 = execute_global_registration(source_down2, target_down3,
+#                                             source_fpfh2, target_fpfh3,
+#                                             voxel_size)
 # print(result_ransac23.transformation)
 # source_down2.transform(result_ransac23.transformation)
 # draw_registration_result(source_down2, target_down3, result_ransac23.transformation)
 
-result_icp23 = refine_registration23(source_down2, target_down3, source_fpfh2, target_fpfh3,
-                                voxel_size)
+# result_icp23 = refine_registration23(source_down2, target_down3, source_fpfh2, target_fpfh3,
+#                                 voxel_size)
 # print(result_icp23.transformation)
-source_down1.transform(result_icp23.transformation)
-source_down2.transform(result_icp23.transformation)
+# source_down1.transform(result_icp23.transformation)
+# source_down2.transform(result_icp23.transformation)
 # draw_registration_result(source_down2, target_down3, result_icp23.transformation)
 
 # source3, target4, source_down3, target_down4, source_fpfh3, target_fpfh4 = prepare_dataset34(
@@ -259,14 +271,14 @@ source_down2.transform(result_icp23.transformation)
 # source_down2.transform(final_transformation)
 # source_down3.transform(final_transformation)
 
-source_temp_down1 = copy.deepcopy(source_down1)
-target2_temp_down2 = copy.deepcopy(source_down2)
+# source_temp_down1 = copy.deepcopy(source_down1)
+# target2_temp_down2 = copy.deepcopy(source_down2)
 # target3_temp_down2 = copy.deepcopy(source_down3)
-target3_temp_down2 = copy.deepcopy(target_down3)
+# target3_temp_down2 = copy.deepcopy(target_down3)
 # final_temp = copy.deepcopy(target_down4)
-source_temp_down1.paint_uniform_color([1, 0.706, 0])
-target2_temp_down2.paint_uniform_color([0, 0.651, 0.929])
-target3_temp_down2.paint_uniform_color([1, 0.651, 0.929])
+# source_temp_down1.paint_uniform_color([1, 0.706, 0])
+# target2_temp_down2.paint_uniform_color([0, 0.651, 0.929])
+# target3_temp_down2.paint_uniform_color([1, 0.651, 0.929])
 # final_temp.paint_uniform_color([0, 0.929, 0.651])
 # o3d.visualization.draw_geometries([source_temp_down1, target2_temp_down2,
 #                                    target3_temp_down2],
@@ -277,47 +289,56 @@ target3_temp_down2.paint_uniform_color([1, 0.651, 0.929])
 
 # o3d.visualization.draw_geometries([source_temp_down1, target2_temp_down2,
 #                                     target3_temp_down2])
-global_map = source_down1+source_down2+target_down3
+# global_map = source_down1+source_down2+target_down3
 # o3d.visualization.draw_geometries([global_map])
-source3, target4, source_down3, target_down4, source_fpfh3, target_fpfh4 = prepare_dataset34(
-    voxel_size,global_map)
+# source3, target4, source_down3, target_down4, source_fpfh3, target_fpfh4 = prepare_dataset34(
+#     voxel_size,global_map)
 
 # result_ransac34 = execute_global_registration(source_down3, target_down4,
 #                                             source_fpfh3, target_fpfh4,
 #                                             voxel_size)
 
-result_icp34 = refine_registration34(source_down3, target_down4, source_fpfh3, target_fpfh4,
-                                voxel_size)
+# result_icp34 = refine_registration34(source_down3, target_down4, source_fpfh3, target_fpfh4,
+#                                 voxel_size)
 
-print(result_icp34.transformation)
-print(result_icp34.transformation[1, 3])
-refined_icp34transformation = copy.deepcopy(result_icp34.transformation)
-refined_icp34transformation[1,3] += 354
+# print(result_icp34.transformation)
+# print(result_icp34.transformation[1, 3])
+# refined_icp34transformation = copy.deepcopy(result_icp34.transformation)
+# refined_icp34transformation[1,3] += 354
 
 # draw_registration_result(source_down3, target_down4, result_icp34.transformation)
 # draw_registration_result(source_down3, target_down4, refined_icp34transformation)
-source_down3.transform(refined_icp34transformation)
-global_map_update = source_down3 + target_down4
+# source_down3.transform(refined_icp34transformation)
+# global_map_update = source_down3 + target_down4
 # o3d.visualization.draw_geometries([global_map_update])
-source4, target5, source_down4, target_down5, source_fpfh4, target_fpfh5 = prepare_dataset45(
-    voxel_size, global_map_update)
+source4, target5, source4_copy, target5_copy, source_down4, target_down5, source_fpfh4, target_fpfh5 = prepare_dataset45(
+    voxel_size)
 
-# result_ransac45 = execute_global_registration(source_down4, target_down5,
-#                                             source_fpfh4, target_fpfh5,
-#                                             voxel_size)
+result_p2p = execute_point2point_registration(source_down4, target_down5, threshold, np.identity(4), voxel_size)
+print("p2p registration result: ", result_p2p.transformation)
+source_down4.transform(result_p2p.transformation)
+result_ransac45 = execute_global_registration(source_down4, target_down5,
+                                            source_fpfh4, target_fpfh5,
+                                            voxel_size)
 result_icp45 = refine_registration45(source_down4,target_down5,source_fpfh4,target_fpfh5,voxel_size)
-print(result_icp45.transformation)
-print(result_icp45.transformation[1, 3])
-# draw_registration_result(source_down4,target_down5,result_ransac45.transformation)
-refined_icp45transformation = copy.deepcopy(result_icp45.transformation)
-refined_icp45transformation[1,3] += 200
+draw_registration_result(source_down4,target_down5,result_icp45.transformation)
+source4_copy.transform(result_icp45.transformation)
+global_point_map = source4_copy+target5_copy
+o3d.io.write_point_cloud("/home/xiangchenliu/SLAMDatasets/5with6.pcd", global_point_map)
+o3d.visualization.draw_geometries([global_point_map])
+
+
+# print(result_icp45.transformation)
+# print(result_icp45.transformation[1, 3])
+# refined_icp45transformation = copy.deepcopy(result_icp45.transformation)
+# refined_icp45transformation[1,3] += 200
 # draw_registration_result(source_down4,target_down5,refined_icp45transformation)
-source_down4.transform(refined_icp45transformation)
-global_map_update_update = source_down4+target_down5
+# source_down4.transform(refined_icp45transformation)
+# global_map_update_update = source_down4+target_down5
 # o3d.visualization.draw_geometries([global_map_update_update])
-source5, target6, source_down5, target_down6, source_fpfh5, target_fpfh6 = prepare_dataset56(
-    voxel_size, global_map_update_update)
+# source5, target6, source_down5, target_down6, source_fpfh5, target_fpfh6 = prepare_dataset56(
+#     voxel_size, global_map_update_update)
 # result_ransac56 = execute_global_registration(source_down5,target_down6,source_fpfh5,target_fpfh6,voxel_size)
 # draw_registration_result(source_down5,target_down6,result_ransac56.transformation)
-result_icp56 = refine_registration56(source_down5,target_down6,source_fpfh5,target_fpfh6,voxel_size)
-draw_registration_result(source_down5,target_down6,result_icp56.transformation)
+# result_icp56 = refine_registration56(source_down5,target_down6,source_fpfh5,target_fpfh6,voxel_size)
+# draw_registration_result(source_down5,target_down6,result_icp56.transformation)

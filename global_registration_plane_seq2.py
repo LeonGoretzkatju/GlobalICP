@@ -257,8 +257,8 @@ global_point_cloud = source_down1 + target_down2
 global_point_cloud.paint_uniform_color([1, 0.706, 0])
 o3d.visualization.draw_geometries([global_point_cloud])
 
-# source2, target3, source_down2, target_down3, source_fpfh2, target_fpfh3 = prepare_dataset23(
-#     voxel_size)
+source2, target3, source_down2, target_down3, source_fpfh2, target_fpfh3 = prepare_dataset23(
+    voxel_size)
 #
 # result_ransac23 = execute_global_registration(source_down2, target_down3,
 #                                             source_fpfh2, target_fpfh3,
