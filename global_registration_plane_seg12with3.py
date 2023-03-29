@@ -48,30 +48,10 @@ def preprocess_global_map(pcd, voxel_size):
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     return pcd, pcd_fpfh
 
-def prepare_dataset23(voxel_size):
+def prepare_dataset(voxel_size):
     print(":: Load two point clouds and disturb initial pose.")
-    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2//plane3.pcd")
-    # target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane2.pcd")
-    target = global_point_cloud
-    # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
-    #                          [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 2300.0],
-                             [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-    source.transform(trans_init)
-    # draw_registration_result(source, target, np.identity(4))
-
-    source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
-    target_down, target_fpfh = preprocess_global_map(target, voxel_size)
-    draw_registration_result(source_down, target_down, np.identity(4))
-    return source, target, source_down, target_down, source_fpfh, target_fpfh
-
-
-def prepare_dataset12(voxel_size):
-    print(":: Load two point clouds and disturb initial pose.")
-    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane1.pcd")  # source is colored in yellow
-    target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane2.pcd")  # target is colored in blue
-    source_copy = copy.deepcopy(source)
-    target_copy = copy.deepcopy(target)
+    source = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane1with2.pcd")  # source is colored in yellow
+    target = o3d.io.read_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane3.pcd")  # target is colored in blue
     # trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
     #                          [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
     trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 1500.0],
@@ -81,7 +61,7 @@ def prepare_dataset12(voxel_size):
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
     target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
     draw_registration_result(source_down, target_down, np.identity(4))
-    return source, target, source_copy, target_copy, source_down, target_down, source_fpfh, target_fpfh
+    return source, target, source_down, target_down, source_fpfh, target_fpfh
 
 def execute_point2point_registration(source, target, threshold, trans_init, voxel_size):
     distance_threshold = voxel_size * 0.4
@@ -121,13 +101,13 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     return result
 
 
-def refine_registration12(source, target, source_fpfh, target_fpfh, voxel_size):
+def refine_registration(source, target, source_fpfh, target_fpfh, voxel_size):
     distance_threshold = voxel_size * 0.4
     print(":: Point-to-plane ICP registration is applied on original point")
     print("   clouds to refine the alignment. This time we use a strict")
     print("   distance threshold %.3f." % distance_threshold)
     result = o3d.pipelines.registration.registration_icp(
-        source, target, distance_threshold, result_ransac12.transformation,
+        source, target, distance_threshold, result_ransac.transformation,
         o3d.pipelines.registration.TransformationEstimationPointToPlane())
     return result
 
@@ -135,17 +115,16 @@ def refine_registration12(source, target, source_fpfh, target_fpfh, voxel_size):
 voxel_size = 10.0  # means 5cm for this dataset
 threshold = 10.0
 
-source1, target2, source1_copy, target2_copy, source_down1, target_down2, source_fpfh1, target_fpfh2 = prepare_dataset12(
+source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(
     voxel_size)
-result_ransac12 = execute_global_registration(source_down1, target_down2,
-                                            source_fpfh1, target_fpfh2,
+result_ransac = execute_global_registration(source_down, target_down,
+                                            source_fpfh, target_fpfh,
                                             voxel_size)
-result_icp12 = refine_registration12(source_down1, target_down2, source_fpfh1, target_fpfh2,
+result_icp = refine_registration(source_down, target_down, source_fpfh, target_fpfh,
                                      voxel_size)
-
-source_down1.transform(result_icp12.transformation)
-global_point_cloud = source_down1 + target_down2
+#
+source_down.transform(result_icp.transformation)
+global_point_cloud = source_down + target_down
 # global_point_cloud.paint_uniform_color([1, 0.706, 0])
-o3d.io.write_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane1with2.pcd",global_point_cloud)
+o3d.io.write_point_cloud("/home/xiangchenliu/SLAMDatasets/plane_seq2/plane12with3.pcd",global_point_cloud)
 o3d.visualization.draw_geometries([global_point_cloud])
-
