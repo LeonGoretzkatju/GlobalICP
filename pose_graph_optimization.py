@@ -33,6 +33,12 @@ def load_point_clouds(voxel_size):
         print(":: Estimate normal with search radius %.3f." % radius_normal)
         pcd_down.estimate_normals(
             o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+        if i == 0 and i == 1 and i ==2:
+            trans_init = np.identity(4)
+        else:
+            trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 450.0],
+                                     [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+        pcd_down.transform(trans_init)
         pcds.append(pcd_down)
     return pcds
 
@@ -64,7 +70,30 @@ def refine_registration(source, target, source_fpfh, target_fpfh, voxel_size, re
         o3d.pipelines.registration.TransformationEstimationPointToPlane())
     return result
 
-def pairwise_registration(source, target, voxel_size):
+def execute_point2point_registration(source, target, trans_init, voxel_size):
+    distance_threshold = voxel_size * 0.4
+    reg_p2p = o3d.pipelines.registration.registration_icp(
+        source, target, distance_threshold, trans_init,
+        o3d.pipelines.registration.TransformationEstimationPointToPoint())
+    return reg_p2p
+
+def execute_point2plane_registration(source, target, trans_init, voxel_size):
+    distance_threshold = voxel_size * 0.4
+    print(":: Point-to-plane ICP registration is applied on original point")
+    print("   clouds to refine the alignment. This time we use a strict")
+    print("   distance threshold %.3f." % distance_threshold)
+    # result = o3d.pipelines.registration.registration_icp(
+    #     source, target, distance_threshold, trans_init,
+    #     o3d.pipelines.registration.TransformationEstimationPointToPlane())
+    loss = o3d.pipelines.registration.TukeyLoss(k=10.0)
+    print("Using robust loss:", loss)
+    p2l = o3d.pipelines.registration.TransformationEstimationPointToPlane(loss)
+    result = o3d.pipelines.registration.registration_icp(source, target,
+                                                         distance_threshold, trans_init,
+                                                         p2l)
+    return result
+
+def pairwise_registration(source, target, voxel_size, source_id, target_id):
     print("Apply point-to-plane ICP")
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
     target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
@@ -75,6 +104,8 @@ def pairwise_registration(source, target, voxel_size):
         source_down, target_down, max_correspondence_distance_fine,
         icp_coarse.transformation,
         o3d.pipelines.registration.TransformationEstimationPointToPlane())
+    # icp_coarse = execute_point2point_registration(source_down, target_down, trans_init, voxel_size)
+    # icp_fine = execute_point2plane_registration(source_down, target_down, icp_coarse.transformation, voxel_size)
     source_down.transform(icp_fine.transformation)
     result_ransac = execute_global_registration(source_down,target_down,source_fpfh,target_fpfh,voxel_size)
     result_icp = refine_registration(source_down,target_down,source_fpfh,target_fpfh,voxel_size,result_ransac)
@@ -93,7 +124,7 @@ def full_registration(pcds, max_correspondence_distance_coarse,
     for source_id in range(n_pcds):
         for target_id in range(source_id + 1, n_pcds):
             transformation_icp, information_icp = pairwise_registration(
-                pcds[source_id], pcds[target_id], voxel_size)
+                pcds[source_id], pcds[target_id], voxel_size, source_id, target_id)
             print("Build o3d.pipelines.registration.PoseGraph")
             if target_id == source_id + 1:  # odometry case
                 odometry = np.dot(transformation_icp, odometry)
@@ -115,7 +146,7 @@ print("Full registration ...")
 max_correspondence_distance_coarse = voxel_size * 1.5
 max_correspondence_distance_fine = voxel_size * 0.4
 with o3d.utility.VerbosityContextManager(
-        o3d.utility.VerbosityLevel.Debug) as cm:
+        o3d.utility.VerbosityLevel.Error) as cm:
     pose_graph = full_registration(pcds_down,
                                    max_correspondence_distance_coarse,
                                    max_correspondence_distance_fine,voxel_size)
@@ -125,7 +156,7 @@ option = o3d.pipelines.registration.GlobalOptimizationOption(
     edge_prune_threshold=0.25,
     reference_node=0)
 with o3d.utility.VerbosityContextManager(
-        o3d.utility.VerbosityLevel.Debug) as cm:
+        o3d.utility.VerbosityLevel.Error) as cm:
     o3d.pipelines.registration.global_optimization(
         pose_graph,
         o3d.pipelines.registration.GlobalOptimizationLevenbergMarquardt(),
